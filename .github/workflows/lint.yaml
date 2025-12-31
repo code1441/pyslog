@@ -1,0 +1,123 @@
+name: Lint and Type Check
+
+on:
+  # all changes to any branch
+  push:
+    branches: ["**"]
+
+jobs:
+  ruff-lint:
+    runs-on: ubuntu-latest
+    env:
+      GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # -----------------------------
+      # Authentication for PRIVATE repos
+      # -----------------------------
+      - name: Configure Git authentication for private GitHub repos
+        run: |
+          sed -i 's#ssh://git@github.com/#https://github.com/#g' pyproject.toml
+          git config --global url."https://$GH_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync dependencies
+        run: uv sync
+
+      # Check code formatting
+      - name: Check code formatting
+        run: |
+          uv run ruff format --check .
+
+      # Run type checking with mypy
+      - name: Run type checking with mypy
+        run: |
+          uv run mypy packages/pyslog
+
+      # Run *all* Ruff issues into a JSON file (does NOT fail job)
+      - name: Run Ruff and collect all issues
+        id: ruff-all
+        continue-on-error: true
+        run: |
+          uv run ruff check . --output-format json > ruff.json || echo "[]" > ruff.json
+
+      # Extract SEVERE issues (E-codes = errors, F-codes = pyflakes errors)
+      # Fail later only if severe issues exist
+      - name: Extract severe issues
+        id: severe
+        continue-on-error: true
+        run: |
+          # Ensure ruff.json exists and is valid JSON
+          if [ ! -f ruff.json ] || [ ! -s ruff.json ]; then
+            echo "[]" > ruff.json
+          fi
+          
+          # Extract severe issues (E = errors, F = pyflakes errors)
+          jq '[ .[] | select(.code | startswith("E") or startswith("F")) ]' ruff.json > severe.json || echo "[]" > severe.json
+          
+          # Count severe issues
+          count=$(jq 'length' severe.json 2>/dev/null || echo "0")
+          echo "count=$count" >> $GITHUB_OUTPUT
+          echo "Found $count severe issue(s)"
+
+      # Create GitHub Summary (shows all issues, not only severe ones)
+      - name: Add Ruff results to summary
+        continue-on-error: true
+        run: |
+          echo "## 📋 Ruff Linting Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check if ruff.json exists and is valid
+          if [ ! -f ruff.json ] || [ ! -s ruff.json ]; then
+            echo "⚠️ Could not read linting results" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          total_count=$(jq 'length' ruff.json 2>/dev/null || echo "0")
+          severe_count=$(jq 'length' severe.json 2>/dev/null || echo "0")
+          
+          echo "### Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Issues:** $total_count" >> $GITHUB_STEP_SUMMARY
+          echo "- **Severe Issues (E/F codes):** $severe_count" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$total_count" -eq 0 ]; then
+            echo "✅ **No linting issues found!**" >> $GITHUB_STEP_SUMMARY
+          else
+            if [ "$severe_count" -eq 0 ]; then
+              echo "✅ **No severe issues found!** (All issues are warnings or style suggestions)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **$severe_count severe issue(s) found**" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Show severe issues
+            if [ "$severe_count" -gt 0 ]; then
+              echo "### 🔴 Severe Issues (E/F codes)" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              jq -r '.[] | "\(.filename):\(.location.row):\(.location.column) \(.code) - \(.message)"' severe.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Could not parse severe issues" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Show all issues if there are non-severe ones
+            non_severe_count=$((total_count - severe_count))
+            if [ "$non_severe_count" -gt 0 ]; then
+              echo "### ⚠️ Other Issues ($non_severe_count)" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              jq -r '[ .[] | select(.code | startswith("E") == false and startswith("F") == false) ] | .[] | "\(.filename):\(.location.row):\(.location.column) \(.code) - \(.message)"' ruff.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Could not parse other issues" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      # Fail ONLY if severe issues exist
+      - name: Fail if severe issues found
+        if: steps.severe.outputs.count != '0' && steps.severe.outputs.count != ''
+        run: |
+          echo "❌ Severe Ruff issues detected (E/F codes). Failing job."
+          echo "Please fix the severe issues listed in the summary above."
+          exit 1
