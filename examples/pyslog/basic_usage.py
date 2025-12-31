@@ -100,4 +100,3 @@ if __name__ == "__main__":
     print(f"  LOGGING_FILE_PATH: {os.getenv('LOGGING_FILE_PATH', 'app.log (default)')}")
     print(f"  LOGGING_INCLUDE_LOCATION: {os.getenv('LOGGING_INCLUDE_LOCATION', 'false (default)')}")
     print("\n" + "=" * 80 + "\n")
-

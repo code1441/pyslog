@@ -31,16 +31,16 @@ jobs:
           uv sync
           uv run pip install pytest pytest-cov
 
-          - name: Run tests for pyslog package
-            id: test_pyslog
-            working-directory: .
-            run: |
-              uv run pytest tests/test_logs_pytest.py tests/test_integration.py \
-                --junitxml=test-report-pyslog.xml \
-                --cov=packages/pyslog \
-                --cov-report=xml:coverage-pyslog.xml \
-                --cov-report=term-missing || echo "exit_code=1" >> $GITHUB_OUTPUT
-              echo "exit_code=0" >> $GITHUB_OUTPUT
+      - name: Run tests for pyslog package
+        id: test_pyslog
+        working-directory: .
+        run: |
+          uv run pytest tests/test_logs_pytest.py tests/test_integration.py \
+            --junitxml=test-report-pyslog.xml \
+            --cov=packages/pyslog \
+            --cov-report=xml:coverage-pyslog.xml \
+            --cov-report=term-missing || echo "exit_code=1" >> $GITHUB_OUTPUT
+          echo "exit_code=0" >> $GITHUB_OUTPUT
 
       - name: Generate coverage summary
         id: coverage_summary

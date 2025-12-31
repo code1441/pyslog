@@ -72,27 +72,21 @@ class LoggingConfig:
             level = LogLevel(level_str)
         except ValueError:
             valid_levels = ", ".join(e.value for e in LogLevel)
-            raise ValueError(
-                f"Invalid LOGGING_LEVEL '{level_str}'. Must be one of: {valid_levels}"
-            ) from None
+            raise ValueError(f"Invalid LOGGING_LEVEL '{level_str}'. Must be one of: {valid_levels}") from None
 
         format_str = env.get("LOGGING_FORMAT", "console").lower()
         try:
             log_format = LogFormat(format_str)
         except ValueError:
             valid_formats = ", ".join(e.value for e in LogFormat)
-            raise ValueError(
-                f"Invalid LOGGING_FORMAT '{format_str}'. Must be one of: {valid_formats}"
-            ) from None
+            raise ValueError(f"Invalid LOGGING_FORMAT '{format_str}'. Must be one of: {valid_formats}") from None
 
         output_str = env.get("LOGGING_OUTPUT", "stdout").lower()
         try:
             output = LogOutput(output_str)
         except ValueError:
             valid_outputs = ", ".join(e.value for e in LogOutput)
-            raise ValueError(
-                f"Invalid LOGGING_OUTPUT '{output_str}'. Must be one of: {valid_outputs}"
-            ) from None
+            raise ValueError(f"Invalid LOGGING_OUTPUT '{output_str}'. Must be one of: {valid_outputs}") from None
 
         file_path = env.get("LOGGING_FILE_PATH", "app.log")
         if not file_path or not isinstance(file_path, str):
@@ -254,9 +248,7 @@ class LoggerFactory:
                     raise ValueError(f"Log file path '{config.file_path}' exists but is not a regular file")
                 handler: logging.Handler = logging.FileHandler(config.file_path, encoding="utf-8")
             except (OSError, PermissionError) as e:
-                raise RuntimeError(
-                    f"Failed to create log file handler for path '{config.file_path}': {e}"
-                ) from e
+                raise RuntimeError(f"Failed to create log file handler for path '{config.file_path}': {e}") from e
         else:
             handler = logging.StreamHandler(stream=sys.stdout)
 
