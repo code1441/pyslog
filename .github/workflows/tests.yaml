@@ -1,0 +1,163 @@
+name: Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # -----------------------------
+      # Authentication for PRIVATE repos
+      # -----------------------------
+      - name: Configure Git authentication for private GitHub repos
+        run: |
+          sed -i 's#ssh://git@github.com/#https://github.com/#g' pyproject.toml
+          git config --global url."https://$GH_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync dependencies
+        run: |
+          uv sync
+          uv run pip install pytest pytest-cov
+
+          - name: Run tests for pyslog package
+            id: test_pyslog
+            working-directory: .
+            run: |
+              uv run pytest tests/test_logs_pytest.py tests/test_integration.py \
+                --junitxml=test-report-pyslog.xml \
+                --cov=packages/pyslog \
+                --cov-report=xml:coverage-pyslog.xml \
+                --cov-report=term-missing || echo "exit_code=1" >> $GITHUB_OUTPUT
+              echo "exit_code=0" >> $GITHUB_OUTPUT
+
+      - name: Generate coverage summary
+        id: coverage_summary
+        working-directory: .
+        run: |
+          python3 << 'EOF'
+          import xml.etree.ElementTree as ET
+          import os
+          
+          packages = ["pyslog"]
+          coverage_data = {}
+          
+          for pkg in packages:
+              cov_file = f"coverage-{pkg}.xml"
+              if os.path.exists(cov_file):
+                  tree = ET.parse(cov_file)
+                  root = tree.getroot()
+                  line_rate = float(root.get("line-rate", 0)) * 100
+                  branch_rate = float(root.get("branch-rate", 0)) * 100
+                  coverage_data[pkg] = {
+                      "line_rate": line_rate,
+                      "branch_rate": branch_rate
+                  }
+          
+          # Create summary
+          summary_lines = ["## 📊 Test Coverage Summary\n"]
+          summary_lines.append("| Package | Line Coverage | Branch Coverage |")
+          summary_lines.append("|---------|---------------|------------------|")
+          
+          for pkg, data in coverage_data.items():
+              line_cov = f"{data['line_rate']:.1f}%"
+              branch_cov = f"{data['branch_rate']:.1f}%"
+              summary_lines.append(f"| `{pkg}` | {line_cov} | {branch_cov} |")
+          
+          summary = "\n".join(summary_lines)
+          print(summary)
+          
+          # Write to file for later use
+          with open("coverage_summary.md", "w") as f:
+              f.write(summary)
+          
+          # Set output (use environment variable for GITHUB_OUTPUT)
+          github_output = os.environ.get("GITHUB_OUTPUT", "/dev/stdout")
+          with open(github_output, "a") as f:
+              f.write(f"summary<<EOF\n{summary}\nEOF\n")
+          EOF
+
+      - name: Upload test reports (JUnit)
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-test-reports
+          path: test-report-*.xml
+        if: always()
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage-*.xml
+        if: always()
+
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: test-report-*.xml
+        if: always()
+
+      - name: Comment PR with coverage
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            
+            let summary = '## 📊 Test Coverage Summary\n\n';
+            summary += '| Package | Line Coverage | Branch Coverage |\n';
+            summary += '|---------|---------------|------------------|\n';
+            
+            const packages = ['pyslog'];
+            for (const pkg of packages) {
+              const covFile = `coverage-${pkg}.xml`;
+              if (fs.existsSync(covFile)) {
+                const xml = fs.readFileSync(covFile, 'utf8');
+                const lineRateMatch = xml.match(/line-rate="([^"]+)"/);
+                const branchRateMatch = xml.match(/branch-rate="([^"]+)"/);
+                const lineRate = lineRateMatch ? (parseFloat(lineRateMatch[1]) * 100).toFixed(1) : '0.0';
+                const branchRate = branchRateMatch ? (parseFloat(branchRateMatch[1]) * 100).toFixed(1) : '0.0';
+                summary += `| \`${pkg}\` | ${lineRate}% | ${branchRate}% |\n`;
+              } else {
+                summary += `| \`${pkg}\` | N/A | N/A |\n`;
+              }
+            }
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('Test Coverage Summary')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }

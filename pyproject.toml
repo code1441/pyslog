@@ -1,0 +1,104 @@
+[project]
+name = "pyslog"
+version = "0.0.1"
+description = "A structlog-based structured logging package for Python"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+keywords = ["logging", "structlog", "structured-logging", "python"]
+authors = [
+    {name = "pyslog contributors"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Logging",
+]
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "structlog>=24.1.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "packages"}
+
+[tool.setuptools.packages.find]
+where = ["packages"]
+
+[tool.ruff]
+# Folders to include in linting
+include = ["pyproject.toml", "packages/pyslog/**/*.py", "examples/**/*.py"]
+target-version = "py312"
+
+line-length = 120
+fix = true
+
+# Enable recommended rule sets
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+
+# Optional: ignore specific rules
+ignore = [
+  "E501", # Line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+# Matches Black-style rules
+preview = true
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+warn_no_return = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = ["structlog.*", "dotenv.*"]
+ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers --tb=short -ra"
+
+[tool.coverage.run]
+source = ["packages/pyslog"]
+omit = ["*/test_*.py", "*/__pycache__/*", "tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
