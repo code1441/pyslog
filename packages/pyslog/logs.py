@@ -157,6 +157,12 @@ class LoggerFactory:
                     for key, value in os.environ.items():
                         if key not in env:
                             env[key] = value
+            # We clear and restore os.environ so that loading of .env files by load_dotenv
+            # does NOT leave any changes in the process-global environment.
+            # This way, evaluation of .env files only affects the temporary env dict
+            # passed in by the caller, not the Python process as a whole.
+            # Lasting effect: Only the passed-in `env` dict is mutated, not os.environ.
+            # The config is saved in the LoggerFactory instance's config field, so it is not affected by this.
             os.environ.clear()
             os.environ.update(original_env)
 
