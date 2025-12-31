@@ -322,8 +322,3 @@ Mypy configuration is defined in `pyproject.toml` under `[tool.mypy]`.
 ## Package Location
 
 The package is located at: [`packages/pyslog/`](packages/pyslog/)
-
-## Related Documentation
-
-- [Package README](packages/pyslog/readme.md)
-
