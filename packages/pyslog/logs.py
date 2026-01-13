@@ -9,7 +9,6 @@ import threading
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import structlog
 from dotenv import load_dotenv
@@ -51,7 +50,7 @@ class LoggingConfig:
     logger_name: str = "logs"
 
     @classmethod
-    def from_env(cls, env: Optional[dict[str, str]] = None) -> LoggingConfig:
+    def from_env(cls, env: dict[str, str] | None = None) -> LoggingConfig:
         """
         Create configuration from environment variables.
 
@@ -116,11 +115,11 @@ class LoggerFactory:
 
     _lock = threading.Lock()
     _configured = False
-    _config: Optional[LoggingConfig] = None
-    _default_logger: Optional[structlog.BoundLogger] = None
+    _config: LoggingConfig | None = None
+    _default_logger: structlog.BoundLogger | None = None
 
     @classmethod
-    def load_environment_variables(cls, env: Optional[dict[str, str]] = None) -> None:
+    def load_environment_variables(cls, env: dict[str, str] | None = None) -> None:
         """
         Load environment variables from .env files in priority order.
 
@@ -167,7 +166,7 @@ class LoggerFactory:
             os.environ.update(original_env)
 
     @classmethod
-    def configure(cls, config: Optional[LoggingConfig] = None, env: Optional[dict[str, str]] = None) -> None:
+    def configure(cls, config: LoggingConfig | None = None, env: dict[str, str] | None = None) -> None:
         """
         Configure structlog with the given configuration.
 
@@ -294,7 +293,7 @@ class LoggerFactory:
             structlog.reset_defaults()
 
     @classmethod
-    def get_config(cls) -> Optional[LoggingConfig]:
+    def get_config(cls) -> LoggingConfig | None:
         """Get current configuration."""
         return cls._config
 
@@ -303,7 +302,7 @@ LoggerFactory.load_environment_variables()
 LoggerFactory.configure()
 
 
-def get_logger(name: Optional[str] = None) -> structlog.BoundLogger:
+def get_logger(name: str | None = None) -> structlog.BoundLogger:
     """
     Get a structlog logger instance.
 

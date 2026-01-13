@@ -19,7 +19,8 @@ Environment variables that can be set:
 import os
 
 # Example 1: Basic usage with default logger
-from pyslog import get_logger, get_handler_logger, replace_stdlib_logger
+import structlog
+from pyslog import get_handler_logger, get_logger, replace_stdlib_logger
 
 # Get the default logger
 logger = get_logger()
@@ -67,7 +68,7 @@ except ZeroDivisionError:
     logger.exception("Division by zero error", dividend=1, divisor=0)
 
 # Example 7: Using context variables for request-scoped logging
-import structlog
+
 
 # Set context that will be included in all subsequent log entries
 structlog.contextvars.clear_contextvars()

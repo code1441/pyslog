@@ -89,10 +89,10 @@ See example_usage.py for more comprehensive examples.
 
 from .logs import (
     LogFormat,
+    LoggerFactory,
+    LoggingConfig,
     LogLevel,
     LogOutput,
-    LoggingConfig,
-    LoggerFactory,
     get_handler_logger,
     get_logger,
     replace_stdlib_logger,
