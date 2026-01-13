@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from pyslog import logs
 import structlog
+
+from pyslog import logs
 
 
 def log_configs_as_table(logger: structlog.stdlib.BoundLogger, config_data: dict, **kwargs):
@@ -20,6 +21,7 @@ def log_configs_as_table(logger: structlog.stdlib.BoundLogger, config_data: dict
     for k, v in zip(keys, vals, strict=True):
         logger.debug(f"| {k.ljust(k_w)} | {v.ljust(v_w)} |", **kwargs)
     logger.debug(line, **kwargs)
+
 
 if __name__ == "__main__":
     logger = logs.get_handler_logger("pyslog.tools")
